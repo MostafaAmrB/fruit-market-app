@@ -62,8 +62,7 @@ class DetailsScreen extends StatelessWidget {
   void buyItem(BuildContext context)
   {
     final cartProvider = Provider.of<CartProvider>(context , listen: false);
-    String newId = item.runtimeType.toString()+item.id;
-    cartProvider.addCartItem(newId, item);
+    cartProvider.addCartItemFirebase(item.id , item.runtimeType.toString());
   }
 
   Widget _buildNutrition() {

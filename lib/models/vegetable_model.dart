@@ -24,7 +24,7 @@ class Vegetable {
     required this.pricePerKilo,
     required this.imageURL,
     required this.nutrition,
-    this.starRating,
+    required this.starRating,
   });
 
   Vegetable.fromJson(Map<String , dynamic> data)

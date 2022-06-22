@@ -1,187 +1,194 @@
 // ignore_for_file: prefer_const_constructors, prefer_const_literals_to_create_immutables , prefer_final_fields
+import 'package:fruit_market_final/providers/food_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import '../models/models.dart';
 
-class CartItem {
-  String id; //Cart Id
-  dynamic item;
+class CartItemFirebase {
+  String productId; //Cart Id
   int quantity;
+  String type;
 
-  CartItem({required this.id, required this.item, required this.quantity});
+  CartItemFirebase(
+      {required this.productId, required this.quantity, required this.type});
 }
 
 class CartProvider with ChangeNotifier {
-  // Key will be the NameOfProduct+productId like 'Fruit10'  , and value will be the item
-  Map<String, CartItem> _cartItems = {};
-  
-  /*Map<String, CartItem> _cartItems = {
-    'Fruit1': CartItem(
-        id: '15',
-        item: Fruit(
-          id: '1',
-          title: 'Grapes',
-          type: FruitType.OrganicFruits,
-          description:
-              'Grapes will provide natural nutrients. The  Chemical in organic grapes which can be healthier hair and skin. It can be improve Your heart health. Protect your body from Cancer.',
-          pricePerKilo: 300,
-          imageURL: 'assets/images/fruits/grapes.jpg',
-          nutrition: [
-            'Fiber',
-            'Fat',
-            'Potassium',
-            'Zinc',
-            'Vitamin A',
-            'Vitamin B'
-          ],
-          starRating: 4,
-        ),
-        quantity: 2),
-    'Fruit2': CartItem(
-        id: 'id',
-        item: Fruit(
-          id: '2',
-          title: 'Strawberry',
-          type: FruitType.OrganicFruits,
-          description:
-              'Strawberry will provide natural nutrients. The  Chemical in organic grapes which can be healthier hair and skin. It can be improve Your heart health. Protect your body from Cancer.',
-          pricePerKilo: 160,
-          imageURL: 'assets/images/fruits/strawberry.jpg',
-          nutrition: [
-            'Fiber',
-            'Fat',
-            'Potassium',
-            'Zinc',
-            'Vitamin A',
-            'Vitamin B'
-          ],
-          starRating: 5,
-        ),
-        quantity: 5),
-    'DryFruit1': CartItem(
-        id: 'id',
-        item: DryFruit(
-          id: '1',
-          title: 'Cashewnuts',
-          type: DryFruitType.IndehiscentDryFruit,
-          description:
-              'Grapes will provide natural nutrients. The  Chemical in organic grapes which can be healthier hair and skin. It can be improve Your heart health. Protect your body from Cancer.',
-          pricePerKilo: 300,
-          imageURL: 'assets/images/dryfruits/cashewnuts.jpg',
-          nutrition: [
-            'Fiber',
-            'Fat',
-            'Potassium',
-            'Zinc',
-            'Vitamin A',
-            'Vitamin B'
-          ],
-          starRating: 4,
-        ),
-        quantity: 5),
-  };*/
-  Map<String, CartItem> get cartItems => {..._cartItems};
+  final firestore = FirebaseFirestore.instance;
+  final collectionName = 'carts';
 
-  void addCartItem(String productId, dynamic item) {
-    if (_cartItems.containsKey(productId)) {
-      // Then Increase Quantity only
-      _cartItems.update(
-          productId,
-          (existingItem) => CartItem(
-              id: existingItem.id,
-              item: existingItem.item,
-              quantity: existingItem.quantity + 1));
-      print('Item is Successfully Updated');
+  List<CartItemFirebase> _cartItemsList = [];
+
+  CartProvider() {
+    fetchItemsFirebase();
+  }
+
+  List<CartItemFirebase> get cartItemsList => [..._cartItemsList];
+
+  void fetchItemsFirebase() {
+    _cartItemsList.clear();
+    print('Fetching Cart Items');
+    firestore.collection(collectionName).get().then((snapshot) {
+      snapshot.docs.forEach((element) {
+        CartItemFirebase newItem = CartItemFirebase(
+            productId: element.id,
+            quantity: element['quantity'],
+            type: element['type']);
+        _cartItemsList.add(newItem);
+      });
+      notifyListeners();
+    });
+  }
+
+  void addCartItemFirebase(String productId, String type) async {
+    //Check if there is item with that id
+
+    final documentSnapShot =
+        await firestore.collection(collectionName).doc(productId).get();
+    // Checking existance of item
+    if (documentSnapShot.exists) {
+      // Item is already existed , update its quantity
+      int newQuantity = documentSnapShot.get('quantity') + 1;
+
+      firestore
+          .collection(collectionName)
+          .doc(productId)
+          .update({'quantity': newQuantity}).then((value) {
+        print('Qunatity Updated');
+        int index = _cartItemsList
+            .indexWhere((element) => element.productId == productId);
+        _cartItemsList[index].quantity = newQuantity;
+        notifyListeners();
+      });
     } else {
-      // Add new CartItem with quantity 1
-      _cartItems.putIfAbsent(
-          productId,
-          () =>
-              CartItem(id: DateTime.now().toString(), item: item, quantity: 1));
-      print('Item is Successfully added');
+      // Item not found , add new one with qunantity 1
+      firestore
+          .collection(collectionName)
+          .doc(productId)
+          .set({'quantity': 1, 'type': type}).then((value) {
+        print('Cart Added to FireBase with $productId');
+        _cartItemsList.add(
+            CartItemFirebase(productId: productId, quantity: 1, type: type));
+        notifyListeners();
+      });
     }
-    printCartItems();
-    notifyListeners();
   }
 
-  void removeCartItem(String productId) {
-    if (_cartItems.containsKey(productId)) {
-      _cartItems.remove(productId);
+  void deleteCartItemFirebase(String productId) async {
+    //Check if there is item with that id
+
+    final documentSnapShot =
+        await firestore.collection(collectionName).doc(productId).get();
+    // Checking existance of item
+    if (documentSnapShot.exists) {
+      firestore
+          .collection(collectionName)
+          .doc(productId)
+          .delete()
+          .then((value) {
+        print('Item is Successfully deleted');
+
+        _cartItemsList.removeWhere((element) => element.productId == productId);
+
+        notifyListeners();
+      });
     }
-    notifyListeners();
   }
 
-  void incrementItem(String productId) {
-    if (_cartItems.containsKey(productId)) {
-      _cartItems.update(
-          productId,
-          (existingItem) => CartItem(
-              id: existingItem.id,
-              item: existingItem.item,
-              quantity: existingItem.quantity + 1));
+  void incrementCartItemQuantityFirebase(String productId) async {
+    //Check if there is item with that id
+
+    final documentSnapShot =
+        await firestore.collection(collectionName).doc(productId).get();
+    // Checking existance of item
+    if (documentSnapShot.exists) {
+      // Item is already existed , update its quantity
+      int newQuantity = documentSnapShot.get('quantity') + 1;
+
+      firestore
+          .collection(collectionName)
+          .doc(productId)
+          .update({'quantity': newQuantity}).then((value) {
+        print('Qunatity Updated');
+
+        int index = _cartItemsList
+            .indexWhere((element) => element.productId == productId);
+        _cartItemsList[index].quantity = newQuantity;
+
+        notifyListeners();
+      });
     }
-    notifyListeners();
   }
 
-  void decrementItem(String productId) {
-    if (_cartItems.containsKey(productId)) {
-      if (_cartItems[productId]!.quantity == 1) {
-        // So Remove This item
-        _cartItems.remove(productId);
+  void decrementCartItemQuantityFirebase(String productId) async {
+    //Check if there is item with that id
+
+    final documentSnapShot =
+        await firestore.collection(collectionName).doc(productId).get();
+    // Checking existance of item
+    if (documentSnapShot.exists) {
+      // Item is already existed , update its quantity
+
+      if (documentSnapShot.get('quantity') > 1) {
+        int newQuantity = documentSnapShot.get('quantity') - 1;
+
+        firestore
+            .collection(collectionName)
+            .doc(productId)
+            .update({'quantity': newQuantity}).then((value) {
+          print('Qunatity Updated');
+
+          int index = _cartItemsList
+              .indexWhere((element) => element.productId == productId);
+          _cartItemsList[index].quantity = newQuantity;
+          notifyListeners();
+        });
       } else {
-        _cartItems.update(
-            productId,
-            (existingItem) => CartItem(
-                id: existingItem.id,
-                item: existingItem.item,
-                quantity: existingItem.quantity - 1));
+        deleteCartItemFirebase(productId);
       }
     }
-    notifyListeners();
   }
 
-  void printCartItems() {
-    _cartItems.forEach((key, value) {
-      print('$key ${value.quantity}');
-    });
-  }
+  List<Fruit> getFruitsFromCart(BuildContext context) {
+    List<Fruit> items = [];
 
-  List<CartItem> getFruitsFromCart() {
-    List<CartItem> items = [];
-    _cartItems.forEach((key, value) {
-      if (key.startsWith('Fruit')) {
-        items.add(value);
+    _cartItemsList.forEach((element) {
+      if (element.type == 'Fruit') {
+        Fruit item = Provider.of<FoodProvider>(context, listen: false)
+            .getFruitById(element.productId);
+        items.add(item);
       }
     });
-
-    print('Fruits From Cart Length is ${items.length}');
-    
 
     return items;
   }
 
-  List<CartItem> getDryFruitsFromCart() {
-    List<CartItem> items = [];
-    _cartItems.forEach((key, value) {
-      if (key.startsWith('DryFruit')) {
-        items.add(value);
+  List<DryFruit> getDryFruitsFromCart(BuildContext context) {
+    List<DryFruit> items = [];
+
+    _cartItemsList.forEach((element) {
+      if (element.type == 'DryFruit') {
+        DryFruit item = Provider.of<FoodProvider>(context, listen: false)
+            .getDryFruitById(element.productId);
+        items.add(item);
       }
     });
-
-    print('DryFruits From Cart Length is ${items.length}');
 
     return items;
   }
 
-  List<CartItem> getVegetablesFromCart() {
-    List<CartItem> items = [];
-    _cartItems.forEach((key, value) {
-      if (key.startsWith('Vegetable')) {
-        items.add(value);
+  List<Vegetable> getVegetablesFromCart(BuildContext context) {
+    List<Vegetable> items = [];
+
+    _cartItemsList.forEach((element) {
+      if (element.type == 'Vegetable') {
+        Vegetable item = Provider.of<FoodProvider>(context, listen: false)
+            .getVegetableById(element.productId);
+        items.add(item);
       }
     });
-
-    print('Vegetables From Cart Length is ${items.length}');
 
     return items;
   }

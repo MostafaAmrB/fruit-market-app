@@ -11,6 +11,7 @@ class ShoppingCartScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     _cartProvider = Provider.of<CartProvider>(context);
+    print('CartsPage is rebuilding');
 
     // TODO: implement build
     return Scaffold(
@@ -22,9 +23,9 @@ class ShoppingCartScreen extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildCategoryContainer(category: 'Vegetables'),
-              _buildCategoryContainer(category: 'Dry Fruits'),
-              _buildCategoryContainer(category: 'Fruits'),
+              _buildCategoryContainer(category: 'Vegetables' , context: context),
+              _buildCategoryContainer(category: 'Dry Fruits', context: context),
+              _buildCategoryContainer(category: 'Fruits', context: context),
             ],
           ),
         ),
@@ -32,16 +33,16 @@ class ShoppingCartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategoryContainer({required String category }) {
+  Widget _buildCategoryContainer({required String category , required BuildContext context }) {
     return Consumer<CartProvider>(
       builder: (_, cartProvider, __) {
         List<dynamic> items = [];
         if (category == 'Fruits')
-          items = cartProvider.getFruitsFromCart();
+          items = cartProvider.getFruitsFromCart(context);
         else if (category == 'Dry Fruits')
-          items = cartProvider.getDryFruitsFromCart();
+          items = cartProvider.getDryFruitsFromCart(context);
         else if (category == 'Vegetables')
-          items = cartProvider.getVegetablesFromCart();
+          items = cartProvider.getVegetablesFromCart(context);
 
         return Container(
           child: Column(
@@ -60,7 +61,7 @@ class ShoppingCartScreen extends StatelessWidget {
                 child: Column(
                   children: List.generate(
                     items.length,
-                    (index) => _buildCartItemContainer(cartItem: items[index]),
+                    (index) => _buildCartItemContainer(item: items[index]),
                   ),
                 ),
               ): Container(
@@ -74,7 +75,7 @@ class ShoppingCartScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCartItemContainer({required CartItem cartItem}) {
+  Widget _buildCartItemContainer({required dynamic item}) {
     return Container(
       height: 120,
       padding: EdgeInsets.all(kDefaultPadding),
@@ -89,7 +90,7 @@ class ShoppingCartScreen extends StatelessWidget {
             child: ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.asset(
-                cartItem.item.imageURL,
+                item.imageURL,
                 fit: BoxFit.cover,
                 width: double.infinity,
               ),
@@ -101,7 +102,7 @@ class ShoppingCartScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  cartItem.item.title,
+                  item.title,
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 SizedBox(
@@ -116,7 +117,7 @@ class ShoppingCartScreen extends StatelessWidget {
                   height: 5,
                 ),
                 Text(
-                  '${cartItem.item.pricePerKilo} Per/Kg',
+                  '${item.pricePerKilo} Per/Kg',
                   style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                 ),
               ],
@@ -140,9 +141,7 @@ class ShoppingCartScreen extends StatelessWidget {
               children: [
                 GestureDetector(
                     onTap: () {
-                      String newId = cartItem.item.runtimeType.toString() +
-                          cartItem.item.id;
-                      _cartProvider.removeCartItem(newId);
+                      _cartProvider.deleteCartItemFirebase(item.id);
                     },
                     child: Icon(Icons.delete)),
                 Spacer(),
@@ -150,9 +149,7 @@ class ShoppingCartScreen extends StatelessWidget {
                   children: [
                     GestureDetector(
                       onTap: () {
-                        String newId = cartItem.item.runtimeType.toString() +
-                            cartItem.item.id;
-                        _cartProvider.decrementItem(newId);
+                        _cartProvider.decrementCartItemQuantityFirebase(item.id);
                       },
                       child: Container(
                         padding: EdgeInsets.all(5),
@@ -169,15 +166,13 @@ class ShoppingCartScreen extends StatelessWidget {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       child: Text(
-                        cartItem.quantity.toString(),
+                        _cartProvider.cartItemsList.firstWhere((element) => element.productId == item.id).quantity.toString(),
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                     ),
                     GestureDetector(
                       onTap: () {
-                        String newId = cartItem.item.runtimeType.toString() +
-                            cartItem.item.id;
-                        _cartProvider.incrementItem(newId);
+                        _cartProvider.incrementCartItemQuantityFirebase(item.id);
                       },
                       child: Container(
                         padding: EdgeInsets.all(5),

@@ -107,7 +107,7 @@ class VegetablesTab extends StatelessWidget {
           (element) => element.type == vegetableType,
         ).toList();
 
-        print('Type ${vegetableType} count is ${items.length}');
+        //print('Type ${vegetableType} count is ${items.length}');
         return Container(
           height: 220,
           padding: EdgeInsets.all(5),
